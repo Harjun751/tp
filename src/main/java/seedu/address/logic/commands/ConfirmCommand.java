@@ -13,6 +13,7 @@ public class ConfirmCommand extends Command {
 
     public static final String USER_INPUT_CONFIRM = "y";
     public static final String USER_INPUT_CANCEL = "n";
+    public static final String USER_INPUT_OPTIONS = "[y/n]";
 
     private final String input;
     private final Runnable onComplete;
@@ -66,4 +67,9 @@ public class ConfirmCommand extends Command {
                 .add("userInput", input)
                 .toString();
     }
+
+    /**
+     * Internal command does not need a help information.
+     */
+    public static void registerHelp() {}
 }

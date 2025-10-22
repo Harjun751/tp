@@ -5,8 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static seedu.address.logic.Messages.MESSAGE_INVALID_PERSON_DISPLAYED_INDEX;
 import static seedu.address.logic.Messages.MESSAGE_UNKNOWN_COMMAND;
 import static seedu.address.logic.commands.CommandTestUtil.EMAIL_DESC_AMY;
+import static seedu.address.logic.commands.CommandTestUtil.GITHUB_DESC_AMY;
 import static seedu.address.logic.commands.CommandTestUtil.NAME_DESC_AMY;
 import static seedu.address.logic.commands.CommandTestUtil.PHONE_DESC_AMY;
+import static seedu.address.logic.commands.CommandTestUtil.TELEGRAM_DESC_AMY;
 import static seedu.address.testutil.Assert.assertThrows;
 import static seedu.address.testutil.TypicalPersons.AMY;
 
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import seedu.address.logic.commands.AddCommand;
 import seedu.address.logic.commands.ClearCommand;
+import seedu.address.logic.commands.CommandRegistry;
 import seedu.address.logic.commands.CommandResult;
 import seedu.address.logic.commands.ConfirmationPendingResult;
 import seedu.address.logic.commands.DeleteCommand;
@@ -53,6 +56,7 @@ public class LogicManagerTest {
                 new JsonAddressBookStorage(temporaryFolder.resolve("addressBook.json"));
         JsonUserPrefsStorage userPrefsStorage = new JsonUserPrefsStorage(temporaryFolder.resolve("userPrefs.json"));
         StorageManager storage = new StorageManager(addressBookStorage, userPrefsStorage);
+        CommandRegistry.initialize();
         logic = new LogicManager(model, storage, new StateManager());
     }
 
@@ -94,7 +98,7 @@ public class LogicManagerTest {
     @Test
     public void execute_addCommand_triggersWrite() throws Exception {
         String addCommand = AddCommand.COMMAND_WORD + NAME_DESC_AMY + PHONE_DESC_AMY
-                + EMAIL_DESC_AMY;
+                + EMAIL_DESC_AMY + TELEGRAM_DESC_AMY + GITHUB_DESC_AMY;
 
         Person expectedPerson = new PersonBuilder(AMY).withTags().build();
         ModelManager expectedModel = new ModelManager();
@@ -114,7 +118,7 @@ public class LogicManagerTest {
 
         Person editedPerson = new PersonBuilder(AMY).build();
         ModelManager expectedModel = new ModelManager(model.getAddressBook(), new UserPrefs());
-        expectedModel.setPerson(model.getFilteredPersonList().get(0), editedPerson);
+        expectedModel.setPerson(model.getSortedAndFilteredPersonList().get(0), editedPerson);
 
         assertCommandTriggersWrite(editCommand,
                 String.format(EditCommand.MESSAGE_EDIT_PERSON_SUCCESS, editedPerson),
@@ -171,12 +175,35 @@ public class LogicManagerTest {
     }
 
     @Test
-    public void execute_clearCommand_triggersWrite() throws Exception {
+    public void execute_clearCommand_doesNotTriggerWrite() throws Exception {
         model.addPerson(AMY);
         String clearCommand = ClearCommand.COMMAND_WORD;
-
         ModelManager expectedModel = new ModelManager();
-        assertCommandTriggersWrite(clearCommand, ClearCommand.MESSAGE_SUCCESS, expectedModel);
+        expectedModel.addPerson(AMY);
+
+        assertCommandDoesNotTriggerWrite(clearCommand, ClearCommand.MESSAGE_CLEAR_CONFIRM, expectedModel);
+    }
+
+    @Test
+    public void execute_clearCommandThenConfirmCommand_triggersWrite() throws Exception {
+        // Arrange - create state with pending confirmation
+        model.addPerson(AMY);
+        int index = 1;
+        State state = new StateManager();
+        TrackingStorageManager trackingStorage = getTestStorageManager();
+        ModelManager expectedModel = new ModelManager(model.getAddressBook(), new UserPrefs());
+        expectedModel.deletePerson(AMY);
+
+        // act - execute confirm command
+        LogicManager lm = new LogicManager(model, trackingStorage, state);
+        lm.execute(ClearCommand.COMMAND_WORD);
+        lm.execute("y");
+
+
+        // Assert - check that contact deleted and write triggered
+        assertEquals(expectedModel, model);
+        assertTrue(trackingStorage.saveCalled,
+                "Expected saveAddressBook() to be called but it was not.");
     }
 
     @Test
@@ -293,7 +320,7 @@ public class LogicManagerTest {
 
         // Triggers the saveAddressBook method by executing an add command
         String addCommand = AddCommand.COMMAND_WORD + NAME_DESC_AMY + PHONE_DESC_AMY
-                + EMAIL_DESC_AMY;
+                + EMAIL_DESC_AMY + TELEGRAM_DESC_AMY + GITHUB_DESC_AMY;
         Person expectedPerson = new PersonBuilder(AMY).withTags().build();
         ModelManager expectedModel = new ModelManager();
         expectedModel.addPerson(expectedPerson);
